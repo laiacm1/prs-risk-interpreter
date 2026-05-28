@@ -126,6 +126,6 @@ st.markdown(
 
     This tool visualizes how an EUR-defined PRS threshold can classify individuals from another population at different rates, and how ancestry-specific recalibration can reduce threshold distortion.
 
-    **Educational/research use only. This is not a clinical risk calculator.**
+    **Educational/research use only. This is not a clinical risk calculator. 67 **
     """
 )
