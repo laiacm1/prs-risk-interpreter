@@ -1,131 +1,302 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+from pathlib import Path
 
-st.set_page_config(page_title="PRS Risk Interpreter", layout="wide")
-
-st.title("PRS Risk Interpreter")
-st.markdown(
-    "Interactive platform visualizing ancestry-dependent polygenic risk score (PRS) interpretation, threshold distortion, and recalibration."
+st.set_page_config(
+    page_title="Cross-Ancestry PRS Explorer",
+    page_icon="🧬",
+    layout="wide"
 )
 
-threshold_df = pd.read_csv("data/real_individual_threshold_inflation.csv")
-calibration_df = pd.read_csv("data/real_1000G_raw_vs_calibrated_thresholds.csv")
+DATA_DIR = Path("data")
 
-st.sidebar.header("Controls")
+@st.cache_data
+def load_csv(name):
+    return pd.read_csv(DATA_DIR / name)
 
-percentiles = sorted(threshold_df["EUR_percentile_cutoff"].unique())
+summary = load_csv("website_corrected_prs_summary_by_ancestry.csv")
+recal = load_csv("website_recalibration_summary.csv")
+zcheck = load_csv("website_zscore_validation_by_ancestry.csv")
+ld_retention = load_csv("FINAL_pruning_signal_retention_by_chr.csv")
+gene_summary = load_csv("FINAL_top_driver_gene_signal_summary.csv")
 
-selected_percentile = st.sidebar.select_slider(
-    "EUR percentile cutoff",
-    options=percentiles,
-    value=90 if 90 in percentiles else percentiles[len(percentiles)//2]
-)
-
-row = threshold_df[threshold_df["EUR_percentile_cutoff"] == selected_percentile].iloc[0]
-
-cutoff = row["cutoff"]
-eur_rate = row["EUR_high_risk_rate"]
-sas_rate = row["SAS_high_risk_rate"]
-ratio = row["SAS_EUR_ratio"]
-
-st.subheader("Threshold Distortion Explorer")
-
-col1, col2, col3 = st.columns(3)
-
-col1.metric("EUR high-risk rate", f"{eur_rate:.1%}")
-col2.metric("SAS high-risk rate", f"{sas_rate:.1%}")
-col3.metric("SAS/EUR distortion ratio", f"{ratio:.2f}x")
-
+st.title("Cross-Ancestry PRS Explorer")
 st.markdown(
-    f"""
-    At the **EUR {selected_percentile}th percentile cutoff**, the score threshold is **{cutoff:.4f}**.  
-    By definition, about **{eur_rate:.1%}** of EUR individuals exceed this threshold.  
-    In SAS individuals, **{sas_rate:.1%}** exceed the same EUR-defined threshold.
+    """
+    This interactive dashboard summarizes a validated analysis of how a European-derived
+    Type 2 Diabetes polygenic risk score behaves across 1000 Genomes ancestry groups.
     """
 )
+
+st.info(
+    "Research use only. This is not a clinical risk calculator."
+)
+
+# -------------------------
+# Top validation metrics
+# -------------------------
+
+st.subheader("Final Validation Snapshot")
+
+col1, col2, col3, col4 = st.columns(4)
+
+col1.metric("1000G individuals", "2,504")
+col2.metric("SAS above EUR 90th", "81.4%")
+col3.metric("After recalibration", "11.0%")
+col4.metric("LD signal retained", "99.34%")
+
+st.markdown(
+    """
+    The corrected real-genotype PRS preserves strong ancestry structure. Applying a European-defined
+    high-risk threshold to South Asian individuals produces severe threshold distortion, while
+    ancestry-specific z-score recalibration largely corrects the issue.
+    """
+)
+
+st.divider()
+
+# -------------------------
+# PRS ancestry summary
+# -------------------------
+
+st.subheader("Corrected PRS Distribution Summary by Ancestry")
+
+summary_display = summary.copy()
+summary_display = summary_display.reset_index() if "super_pop" not in summary_display.columns else summary_display
+st.dataframe(summary_display, use_container_width=True)
 
 fig = go.Figure()
 
 fig.add_trace(
-    go.Scatter(
-        x=threshold_df["EUR_percentile_cutoff"],
-        y=threshold_df["SAS_EUR_ratio"],
-        mode="lines+markers",
-        name="SAS/EUR distortion ratio"
+    go.Bar(
+        x=summary_display["super_pop"],
+        y=summary_display["mean"],
+        error_y=dict(type="data", array=summary_display["std"]),
+        name="Mean PRS"
     )
 )
 
-fig.add_vline(
-    x=selected_percentile,
-    line_dash="dash",
-    annotation_text=f"Selected: {selected_percentile}th"
-)
-
 fig.update_layout(
-    title="Threshold Distortion Across EUR Percentile Cutoffs",
-    xaxis_title="EUR Percentile Cutoff",
-    yaxis_title="SAS/EUR High-Risk Classification Ratio",
-    height=500
+    title="Mean Corrected Genome-wide PRS by Ancestry",
+    xaxis_title="Ancestry group",
+    yaxis_title="Mean corrected PRS",
+    height=450
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-st.subheader("Raw vs Recalibrated Threshold Error")
+# -------------------------
+# Threshold recalibration
+# -------------------------
 
-available_pops = sorted(calibration_df["population"].unique())
+st.subheader("Threshold Distortion and Recalibration")
 
-selected_pop = st.selectbox(
-    "Compare recalibration for population",
-    available_pops,
-    index=available_pops.index("SAS") if "SAS" in available_pops else 0
+selected_percentile = st.select_slider(
+    "Select European percentile cutoff",
+    options=list(recal["percentile_cutoff"]),
+    value=90
 )
 
-pop_df = calibration_df[calibration_df["population"] == selected_pop]
+row = recal[recal["percentile_cutoff"] == selected_percentile].iloc[0]
+
+c1, c2, c3 = st.columns(3)
+
+c1.metric("Expected above rate", f"{1 - selected_percentile/100:.1%}")
+c2.metric("SAS raw above rate", f"{row['SAS_raw_above_rate']:.1%}")
+c3.metric("SAS recalibrated above rate", f"{row['SAS_recalibrated_above_rate']:.1%}")
+
+st.markdown(
+    f"""
+    At the **European {selected_percentile}th percentile cutoff**, the raw PRS classifies
+    **{row['SAS_raw_above_rate']:.1%}** of South Asian individuals above the threshold.
+    After ancestry-specific recalibration, this falls to **{row['SAS_recalibrated_above_rate']:.1%}**.
+    """
+)
 
 fig2 = go.Figure()
 
 fig2.add_trace(
     go.Scatter(
-        x=pop_df["percentile"],
-        y=pop_df["raw_error"],
+        x=recal["percentile_cutoff"],
+        y=recal["SAS_raw_above_rate"],
         mode="lines+markers",
-        name="Raw error"
+        name="SAS raw above rate"
     )
 )
 
 fig2.add_trace(
     go.Scatter(
-        x=pop_df["percentile"],
-        y=pop_df["z_error"],
+        x=recal["percentile_cutoff"],
+        y=recal["SAS_recalibrated_above_rate"],
         mode="lines+markers",
-        name="After z-score recalibration"
+        name="SAS recalibrated above rate"
     )
 )
 
-fig2.add_hline(y=0, line_dash="dash")
+fig2.add_trace(
+    go.Scatter(
+        x=recal["percentile_cutoff"],
+        y=1 - recal["percentile_cutoff"] / 100,
+        mode="lines+markers",
+        name="Expected above rate"
+    )
+)
 
 fig2.update_layout(
-    title=f"Threshold Error Before vs After Recalibration ({selected_pop})",
-    xaxis_title="EUR Percentile Cutoff",
-    yaxis_title="Classification Error",
+    title="Raw vs Recalibrated Threshold Transfer",
+    xaxis_title="European percentile cutoff",
+    yaxis_title="Fraction above threshold",
     height=500
 )
 
 st.plotly_chart(fig2, use_container_width=True)
 
+fig3 = go.Figure()
+
+fig3.add_trace(
+    go.Scatter(
+        x=recal["percentile_cutoff"],
+        y=recal["error_reduction_percent"],
+        mode="lines+markers",
+        name="Error reduction"
+    )
+)
+
+fig3.update_layout(
+    title="Error Reduction After Ancestry-Specific Recalibration",
+    xaxis_title="European percentile cutoff",
+    yaxis_title="Error reduction (%)",
+    height=450
+)
+
+st.plotly_chart(fig3, use_container_width=True)
+
 st.divider()
 
-st.subheader("Why this matters")
+# -------------------------
+# Z-score validation
+# -------------------------
+
+st.subheader("Z-Score Recalibration Validation")
+
+z_display = zcheck.reset_index() if "super_pop" not in zcheck.columns else zcheck
+st.dataframe(z_display, use_container_width=True)
 
 st.markdown(
     """
-    Polygenic risk scores are probabilistic tools. A score threshold calibrated in one ancestry group may not transfer cleanly to another because allele frequencies, linkage disequilibrium, and score architecture differ across populations.
+    After within-ancestry z-score standardization, each ancestry group has mean approximately 0
+    and standard deviation approximately 1. This confirms that recalibration behaved as expected.
+    """
+)
 
-    This tool visualizes how an EUR-defined PRS threshold can classify individuals from another population at different rates, and how ancestry-specific recalibration can reduce threshold distortion.
+st.divider()
 
-    **Educational/research use only. This is not a clinical risk calculator.  **
+# -------------------------
+# LD pruning validation
+# -------------------------
+
+st.subheader("LD Pruning Validation")
+
+total_dense = ld_retention["dense_abs_delta"].sum()
+total_pruned = ld_retention["pruned_abs_delta"].sum()
+overall_retained = total_pruned / total_dense * 100
+removed_snps = ld_retention["removed_snps"].sum()
+dense_snps = ld_retention["dense_snps"].sum()
+
+c1, c2, c3 = st.columns(3)
+
+c1.metric("Top driver SNPs tested", f"{dense_snps}")
+c2.metric("SNPs removed by pruning", f"{removed_snps}")
+c3.metric("Signal retained", f"{overall_retained:.2f}%")
+
+fig4 = go.Figure()
+
+fig4.add_trace(
+    go.Bar(
+        x=ld_retention["chromosome"],
+        y=ld_retention["fraction_signal_retained"] * 100,
+        name="Signal retained"
+    )
+)
+
+fig4.update_layout(
+    title="PRS Shift Signal Retained After LD Pruning",
+    xaxis_title="Chromosome",
+    yaxis_title="Signal retained (%)",
+    height=450
+)
+
+st.plotly_chart(fig4, use_container_width=True)
+
+st.markdown(
+    """
+    LD pruning removed only a tiny fraction of top driver SNPs and retained nearly all of the
+    cross-ancestry signal. This supports the interpretation that PRS distortion is not mainly caused
+    by a few highly correlated LD blocks.
+    """
+)
+
+st.divider()
+
+# -------------------------
+# Gene biology
+# -------------------------
+
+st.subheader("Top Gene-Level Contributors")
+
+top_n = st.slider("Number of genes to show", 5, 30, 15)
+
+top_genes = gene_summary.head(top_n)
+
+fig5 = go.Figure()
+
+fig5.add_trace(
+    go.Bar(
+        x=top_genes["total_abs_delta"],
+        y=top_genes["gene"],
+        orientation="h",
+        name="Total absolute contribution"
+    )
+)
+
+fig5.update_layout(
+    title="Top Gene-Level Contributors to Cross-Ancestry PRS Distortion",
+    xaxis_title="Total absolute contribution",
+    yaxis_title="Gene",
+    height=600,
+    yaxis=dict(autorange="reversed")
+)
+
+st.plotly_chart(fig5, use_container_width=True)
+
+st.dataframe(top_genes, use_container_width=True)
+
+st.markdown(
+    """
+    Several high-signal genes are connected to diabetes or cardiometabolic biology, including
+    ADAMTS9, KCNQ1, ST6GAL1, PPARG, CDKN2B-AS1, and JAZF1. The next biological layer is to
+    investigate whether top driver variants act as eQTLs in relevant tissues such as pancreas,
+    liver, adipose, muscle, or blood.
+    """
+)
+
+st.divider()
+
+# -------------------------
+# Final conclusion
+# -------------------------
+
+st.subheader("Current Project Claim")
+
+st.markdown(
+    """
+    **European-derived Type 2 Diabetes PRSs encode strong ancestry structure that produces severe
+    cross-population threshold distortion. Much of this portability failure behaves like a calibration
+    and architecture problem rather than complete ranking collapse. The signal persists after LD
+    pruning and appears to arise from many weakly correlated variants with ancestry-dependent
+    allele-frequency and effect-size architecture.**
     """
 )
