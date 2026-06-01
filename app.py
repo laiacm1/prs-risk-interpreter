@@ -2,18 +2,14 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from pathlib import Path
-app.py
-data/
-  website_corrected_prs_summary_by_ancestry.csv
-  website_recalibration_summary.csv
-  website_zscore_validation_by_ancestry.csv
-  FINAL_pruning_signal_retention_by_chr.csv
-  FINAL_top_driver_gene_signal_summary.csv
+
 st.set_page_config(
     page_title="Cross-Ancestry PRS Explorer",
     page_icon="🧬",
     layout="wide"
 )
+
+DATA_DIR = Path("data")
 
 DATA_DIR = Path("data")
 
