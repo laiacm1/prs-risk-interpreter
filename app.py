@@ -26,11 +26,26 @@ gene_summary = load_csv("FINAL_top_driver_gene_signal_summary.csv")
 st.title("Cross-Ancestry PRS Explorer")
 st.markdown(
     """
-    This interactive dashboard summarizes a validated analysis of how a European-derived
-    Type 2 Diabetes polygenic risk score behaves across 1000 Genomes ancestry groups.
+    ### Biological Interpretation
+
+    Mapping the strongest distortion-driving variants to nearby genes revealed several established
+    Type 2 Diabetes loci among the top contributors, including **ADAMTS9, KCNQ1, ST6GAL1, PPARG,
+    JAZF1, and CDKN2B-AS1**.
+
+    Rather than being driven by a single gene or genomic region, the cross-ancestry signal remains
+    distributed across many loci. Even the strongest individual genes explain only a small fraction
+    of the total distortion, supporting a highly polygenic architecture.
+
+    Pathway enrichment analysis of the top driver genes identified significant enrichment for the
+    **Type II Diabetes Mellitus** pathway, with additional enrichment observed for **insulin
+    secretion** and related metabolic processes.
+
+    Together, these results suggest that cross-ancestry PRS distortion is not simply a statistical
+    artifact. The largest ancestry-dependent shifts occur at loci already implicated in diabetes
+    biology, indicating that differences in population allele frequencies at disease-relevant genes
+    contribute to portability failure.
     """
 )
-
 st.info(
     "Research use only. This is not a clinical risk calculator."
 )
