@@ -49,7 +49,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.info("Research use only. This is not a clinical risk calculator.")
 st.info(
     "Research use only. This is not a clinical risk calculator."
 )
