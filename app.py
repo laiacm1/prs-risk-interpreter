@@ -33,11 +33,18 @@ ld_retention = load_csv("FINAL_pruning_signal_retention_by_chr.csv")
 gene_summary = load_csv("FINAL_top_driver_gene_signal_summary.csv")
 
 st.markdown("""
-<div class="hero">
-    <h1>Cross-Ancestry PRS Explorer</h1>
-    <p>
+<div style="
+    background: linear-gradient(135deg, #0f172a, #155e75);
+    padding: 42px;
+    border-radius: 24px;
+    color: white;
+    margin-bottom: 28px;
+">
+    <h1 style="font-size: 48px; margin-bottom: 10px;">Cross-Ancestry PRS Explorer</h1>
+    <p style="font-size: 19px; line-height: 1.6; max-width: 900px;">
     A European-derived Type 2 Diabetes polygenic risk score shows severe threshold distortion
-    when applied across ancestry groups.
+    across ancestry groups. This dashboard tests whether that failure reflects calibration bias,
+    LD redundancy, or distributed genetic architecture.
     </p>
 </div>
 """, unsafe_allow_html=True)
