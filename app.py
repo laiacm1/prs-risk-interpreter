@@ -84,8 +84,21 @@ st.subheader("Corrected PRS Distribution Summary by Ancestry")
 
 summary_display = summary.copy()
 summary_display = summary_display.reset_index() if "super_pop" not in summary_display.columns else summary_display
-st.dataframe(summary_display, use_container_width=True)
+# Hide raw summary table for cleaner storytelling
+# st.dataframe(summary_display, use_container_width=True)
 
+st.markdown("""
+<div style="
+    background-color: #eef6ff;
+    border-left: 6px solid #155e75;
+    padding: 18px 22px;
+    border-radius: 14px;
+    margin-bottom: 18px;
+">
+<b>Key result:</b> The corrected PRS is lowest in EUR and highest in AFR, showing that the raw
+European-derived score carries strong ancestry structure before recalibration.
+</div>
+""", unsafe_allow_html=True)
 fig = go.Figure()
 
 fig.add_trace(
